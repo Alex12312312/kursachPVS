@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Сайт студенческой группы — Галерея</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <a id="top"></a>
+  <header>
+    <div class="container bar">
+      <a class="brand" href="/">
+        <img src="/assets/logo.svg" alt="Логотип" />
+        <div>
+          <strong>Сайт студенческой группы</strong>
+          <span>Раздел: Галерея</span>
+        </div>
+      </a>
+      <nav>
+        <a href="/">Главная</a>
+        <a href="/about.html">О группе</a>
+        <a href="/gallery.html">Галерея</a>
+        <a href="/contact.html">Контакты</a>
+        <a href="/cgi-bin/students.pl">Студенты (CGI)</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h1>Галерея</h1>
+      <p>
+        Пример страницы с фоновым изображением (задаётся в CSS), списком рисунков и якорями.
+      </p>
+
+      <h2 id="toc">Оглавление</h2>
+      <ol class="toc">
+        <li><a href="#images">Список рисунков</a></li>
+        <li><a href="#img1">Рисунок 1</a></li>
+        <li><a href="#img2">Рисунок 2</a></li>
+      </ol>
+
+      <h2 id="images">Список рисунков</h2>
+      <ol class="toc">
+        <li><a href="#img1">Рисунок 1 — Фото группы</a></li>
+        <li><a href="#img2">Рисунок 2 — Логотип</a></li>
+      </ol>
+
+      <div class="grid" style="margin-top:14px">
+        <div class="img-frame" id="img1">
+          <img src="/assets/group-photo.svg" alt="Фото группы" />
+          <div class="caption">Рисунок 1 — «Фото группы» (заглушка).</div>
+        </div>
+        <div class="img-frame" id="img2">
+          <img src="/assets/logo.svg" alt="Логотип" />
+          <div class="caption">Рисунок 2 — Логотип.</div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="card" style="margin-top:16px">
+      <div class="anchors">
+        <a href="#top">В начало</a>
+        <a href="#bottom">В конец</a>
+        <a href="/">На главную</a>
+      </div>
+      <a id="bottom"></a>
+      <div style="margin-top:10px">
+        <span class="pill">© <span data-year></span></span>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>

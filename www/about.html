@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Сайт студенческой группы — О группе</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <a id="top"></a>
+  <header>
+    <div class="container bar">
+      <a class="brand" href="/">
+        <img src="/assets/logo.svg" alt="Логотип" />
+        <div>
+          <strong>Сайт студенческой группы</strong>
+          <span>Раздел: О группе</span>
+        </div>
+      </a>
+      <nav>
+        <a href="/">Главная</a>
+        <a href="/about.html">О группе</a>
+        <a href="/gallery.html">Галерея</a>
+        <a href="/contact.html">Контакты</a>
+        <a href="/cgi-bin/students.pl">Студенты (CGI)</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h1>О группе</h1>
+      <p>Страница содержит текст, таблицу и якорную навигацию по тематическим разделам.</p>
+
+      <h2 id="toc">Оглавление</h2>
+      <ol class="toc">
+        <li><a href="#schedule">Расписание (пример)</a></li>
+        <li><a href="#roles">Роли в группе</a></li>
+        <li><a href="#images">Список рисунков</a></li>
+      </ol>
+
+      <h2 id="schedule">Расписание (пример)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>День</th>
+            <th>Пара</th>
+            <th>Предмет</th>
+            <th>Аудитория</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Пн</td><td>1</td><td>Математика</td><td>201</td></tr>
+          <tr><td>Пн</td><td>2</td><td>Программирование</td><td>305</td></tr>
+          <tr><td>Ср</td><td>3</td><td>Сети</td><td>112</td></tr>
+          <tr><td>Пт</td><td>4</td><td>Базы данных</td><td>410</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="roles">Роли в группе</h2>
+      <p>
+        Здесь можно описать старосту, ответственных за лабораторные, связь с преподавателями и т.д.
+        Фактические данные о студентах берутся из БД и показываются на CGI-страницах.
+      </p>
+      <p>
+        Для просмотра списка студентов перейдите на <a href="/cgi-bin/students.pl">динамическую страницу</a>.
+      </p>
+
+      <h2 id="images">Список рисунков</h2>
+      <ol class="toc">
+        <li><a href="#img1">Рисунок 1 — Логотип</a></li>
+      </ol>
+
+      <div class="img-frame" id="img1" style="margin-top:10px">
+        <img src="/assets/logo.svg" alt="Логотип" />
+        <div class="caption">Рисунок 1 — Логотип сайта.</div>
+      </div>
+    </section>
+
+    <footer class="card" style="margin-top:16px">
+      <div class="anchors">
+        <a href="#top">В начало</a>
+        <a href="#bottom">В конец</a>
+        <a href="/">На главную</a>
+      </div>
+      <a id="bottom"></a>
+      <div style="margin-top:10px">
+        <span class="pill">© <span data-year></span></span>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>

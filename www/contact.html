@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Сайт студенческой группы — Контакты</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script defer src="/app.js"></script>
+</head>
+<body>
+  <a id="top"></a>
+  <header>
+    <div class="container bar">
+      <a class="brand" href="/">
+        <img src="/assets/logo.svg" alt="Логотип" />
+        <div>
+          <strong>Сайт студенческой группы</strong>
+          <span>Раздел: Контакты</span>
+        </div>
+      </a>
+      <nav>
+        <a href="/">Главная</a>
+        <a href="/about.html">О группе</a>
+        <a href="/gallery.html">Галерея</a>
+        <a href="/contact.html">Контакты</a>
+        <a href="/cgi-bin/students.pl">Студенты (CGI)</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h1>Контакты</h1>
+      <p>Ниже — форма, которая отправляет данные на сервер (CGI на Perl).</p>
+
+      <h2 id="toc">Оглавление</h2>
+      <ol class="toc">
+        <li><a href="#form">Форма</a></li>
+        <li><a href="#links">Полезные ссылки</a></li>
+      </ol>
+
+      <h2 id="form">Форма обратной связи</h2>
+      <form method="post" action="/cgi-bin/contact_submit.pl">
+        <div class="field">
+          <label for="name">Имя</label>
+          <input id="name" name="name" placeholder="Иван Иванов" required />
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" placeholder="name@example.com" required />
+        </div>
+        <div class="field">
+          <label for="topic">Тема</label>
+          <select id="topic" name="topic">
+            <option value="question">Вопрос</option>
+            <option value="proposal">Предложение</option>
+            <option value="bug">Ошибка на сайте</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="message">Сообщение</label>
+          <textarea id="message" name="message" placeholder="Текст сообщения..." required></textarea>
+        </div>
+        <button class="btn" type="submit">Отправить на сервер</button>
+      </form>
+
+      <h2 id="links">Полезные ссылки</h2>
+      <div class="anchors">
+        <a href="/">На главную</a>
+        <a href="/cgi-bin/students.pl">Список студентов (CGI)</a>
+      </div>
+    </section>
+
+    <footer class="card" style="margin-top:16px">
+      <div class="anchors">
+        <a href="#top">В начало</a>
+        <a href="#bottom">В конец</a>
+        <a href="/">На главную</a>
+      </div>
+      <a id="bottom"></a>
+      <div style="margin-top:10px">
+        <span class="pill">© <span data-year></span></span>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>
