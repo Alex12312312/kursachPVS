@@ -2,19 +2,17 @@ package DB;
 use strict;
 use warnings;
 use utf8;
-use Fcntl qw(O_CREAT O_RDWR);
-use DB_File qw($DB_HASH);
-use Encode qw(encode decode);
 use DBI;
 
-# Таблицы:
-# users       — пользователи (студенты группы)
-#               поля (в pack): login, full_name, role, email
-# news        — новости: title, body, image, author_id, created_at
-# logs        — логи: user_id, action, details, created_at
-# photos      — фотографии для галереи: title, url, author_id, created_at
-# sessions    — сессии авторизации: user_id, created_at
-# schedule    — актуальное расписание: text, updated_at
+# Таблицы (по актуальной схеме):
+# faculty(id, name)
+# group(id, name, faculty_id)
+# users(id, login, full_name, role, email, groupid)
+# shedule(group_id PRIMARY KEY, text, updated_at)
+# sessions(token, user_id, created_at)
+# logs(id, user_id, action, details, created_at)
+# news(id, title, body, image, author_id, created_at)
+# photos(id, title, url, author_id, created_at)
 
 sub _sqlite_path {
   my $root = $ENV{APP_DATA_DIR} // 'data';
@@ -45,12 +43,22 @@ sub close_all {
 
 sub _ensure_schema {
   my ($dbh) = @_;
+  $dbh->do(q{CREATE TABLE IF NOT EXISTS faculty(
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
+  )});
+  $dbh->do(q{CREATE TABLE IF NOT EXISTS "group"(
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    faculty_id INTEGER NOT NULL
+  )});
   $dbh->do(q{CREATE TABLE IF NOT EXISTS users(
     id TEXT PRIMARY KEY,
     login TEXT,
     full_name TEXT,
     role TEXT,
-    email TEXT
+    email TEXT,
+    groupid INTEGER
   )});
   $dbh->do(q{CREATE TABLE IF NOT EXISTS news(
     id TEXT PRIMARY KEY,
@@ -69,54 +77,128 @@ sub _ensure_schema {
     token TEXT PRIMARY KEY,
     user_id TEXT, created_at INTEGER
   )});
-  $dbh->do(q{CREATE TABLE IF NOT EXISTS schedule(
-    key TEXT PRIMARY KEY,
+  # Таблица по схеме: group_id является PK, поля key нет
+  $dbh->do(q{CREATE TABLE IF NOT EXISTS shedule(
+    group_id INTEGER PRIMARY KEY,
     text TEXT, updated_at INTEGER
   )});
+
+  # Поддержка миграции: если users была создана в старом варианте без groupid
+  my $has_groupid = 0;
+  my $cols = $dbh->selectall_arrayref(q{PRAGMA table_info(users)}, { Slice => {} });
+  for my $c (@$cols) {
+    if (($c->{name} // '') eq 'groupid') {
+      $has_groupid = 1;
+      last;
+    }
+  }
+  if (!$has_groupid) {
+    $dbh->do(q{ALTER TABLE users ADD COLUMN groupid INTEGER});
+  }
 }
 
 sub _seed_if_needed {
   my ($dbh) = @_;
-  my ($users_count) = $dbh->selectrow_array(q{SELECT COUNT(1) FROM users});
-  return if ($users_count // 0) > 0;
+  my ($fac_count) = $dbh->selectrow_array(q{SELECT COUNT(1) FROM faculty});
+  return if ($fac_count // 0) > 0;
 
   my $now = time();
 
-  # Users
-  my $ins_user = $dbh->prepare(q{INSERT OR REPLACE INTO users(id,login,full_name,role,email) VALUES (?,?,?,?,?)});
-  $ins_user->execute('u_starosta','starosta','Иванов Иван (староста)','староста','ivanov@example.com');
-  $ins_user->execute('u_uchorg','uchorg','Петрова Анна (учорг)','учорг','petrova@example.com');
-  $ins_user->execute('u_proforg','proforg','Сидоров Артём (профорг)','профорг','sidorov@example.com');
-  $ins_user->execute('u_leader','leader','Кузнецова Мария (студлидер)','студлидер','kuz@example.com');
-  $ins_user->execute('u_student1','stud1','Студент Один','студент','stud1@example.com');
-  $ins_user->execute('u_student2','stud2','Студент Два','студент','stud2@example.com');
+  # Миграционный сценарий: при переходе со старой схемы очищаем таблицы
+  # и загружаем новый набор данных по факультетам/группам.
+  $dbh->do(q{DELETE FROM logs});
+  $dbh->do(q{DELETE FROM sessions});
+  $dbh->do(q{DELETE FROM news});
+  $dbh->do(q{DELETE FROM photos});
+  $dbh->do(q{DELETE FROM users});
+  $dbh->do(q{DELETE FROM shedule});
+  $dbh->do(q{DELETE FROM "group"});
+  $dbh->do(q{DELETE FROM faculty});
+
+  # Faculties: 2 факультета
+  my $ins_faculty = $dbh->prepare(q{INSERT OR REPLACE INTO faculty(id,name) VALUES (?,?)});
+  $ins_faculty->execute(1, 'Факультет информатики');
+  $ins_faculty->execute(2, 'Факультет экономики');
+
+  # Groups: в первом факультете 2 группы (включая ПИ-21), во втором 1 группа
+  my $ins_group = $dbh->prepare(q{INSERT OR REPLACE INTO "group"(id,name,faculty_id) VALUES (?,?,?)});
+  $ins_group->execute(1, 'ПИ-21', 1);
+  $ins_group->execute(2, 'ПИ-22', 1);
+  $ins_group->execute(3, 'ЭК-11', 2);
+
+  # Users: в каждой группе 1 староста + 3 студента
+  my $ins_user = $dbh->prepare(q{
+    INSERT OR REPLACE INTO users(id,login,full_name,role,email,groupid) VALUES (?,?,?,?,?,?)
+  });
+
+  # ПИ-21
+  $ins_user->execute('u_pi21_head','pi21_head','Иванов Иван','староста','ivanov.pi21@example.com',1);
+  $ins_user->execute('u_pi21_s1','pi21_s1','Петров Пётр','студент','petrov.pi21@example.com',1);
+  $ins_user->execute('u_pi21_s2','pi21_s2','Сидорова Анна','студент','sidorova.pi21@example.com',1);
+  $ins_user->execute('u_pi21_s3','pi21_s3','Кузнецов Артём','студент','kuznetsov.pi21@example.com',1);
+
+  # ПИ-22
+  $ins_user->execute('u_pi22_head','pi22_head','Орлова Мария','староста','orlova.pi22@example.com',2);
+  $ins_user->execute('u_pi22_s1','pi22_s1','Смирнов Егор','студент','smirnov.pi22@example.com',2);
+  $ins_user->execute('u_pi22_s2','pi22_s2','Николаева Ольга','студент','nikolaeva.pi22@example.com',2);
+  $ins_user->execute('u_pi22_s3','pi22_s3','Васильев Илья','студент','vasilyev.pi22@example.com',2);
+
+  # ЭК-11
+  $ins_user->execute('u_ek11_head','ek11_head','Соколова Елена','староста','sokolova.ek11@example.com',3);
+  $ins_user->execute('u_ek11_s1','ek11_s1','Фёдоров Никита','студент','fedorov.ek11@example.com',3);
+  $ins_user->execute('u_ek11_s2','ek11_s2','Павлова Дарья','студент','pavlova.ek11@example.com',3);
+  $ins_user->execute('u_ek11_s3','ek11_s3','Воронов Максим','студент','voronov.ek11@example.com',3);
 
   # News
   my $ins_news = $dbh->prepare(q{INSERT OR REPLACE INTO news(id,title,body,image,author_id,created_at) VALUES (?,?,?,?,?,?)});
-  $ins_news->execute('n1','Старт учебного семестра','Добро пожаловать на сайт студенческой группы! Здесь будут публиковаться новости и объявления.','/assets/group-photo.svg','u_starosta',$now);
-  $ins_news->execute('n2','Подготовка к сессии','Староста напоминает о консультациях перед экзаменами. Подробности уточняйте у преподавателей.','/assets/logo.svg','u_uchorg',$now-86400);
+  $ins_news->execute('n1','Старт учебного семестра','Добро пожаловать на сайт студенческой группы! Здесь будут публиковаться новости и объявления.','/assets/group-photo.svg','u_pi21_head',$now);
+  $ins_news->execute('n2','Подготовка к сессии','Староста напоминает о консультациях перед экзаменами. Подробности уточняйте у преподавателей.','/assets/logo.svg','u_ek11_head',$now-86400);
 
   # Photos
   my $ins_photo = $dbh->prepare(q{INSERT OR REPLACE INTO photos(id,title,url,author_id,created_at) VALUES (?,?,?,?,?)});
-  $ins_photo->execute('p1','Фото группы','/assets/group-photo.svg','u_leader',$now-40000);
-  $ins_photo->execute('p2','Логотип группы','/assets/logo.svg','u_proforg',$now-80000);
+  $ins_photo->execute('p1','Фото группы ПИ-21','/assets/group-photo.svg','u_pi21_s1',$now-40000);
+  $ins_photo->execute('p2','Логотип группы','/assets/logo.svg','u_pi22_s2',$now-80000);
 
-  # Schedule
-  my $ins_sched = $dbh->prepare(q{INSERT OR REPLACE INTO schedule(key,text,updated_at) VALUES (?,?,?)});
-  $ins_sched->execute('current',"Пн: Математика, Программирование\nВт: Окно\nСр: Сети, Базы данных",$now);
+  # Shedule (по группе)
+  my $ins_sched = $dbh->prepare(q{INSERT OR REPLACE INTO shedule(group_id,text,updated_at) VALUES (?,?,?)});
+  $ins_sched->execute(1, "ПИ-21\nПн: Математика, Программирование\nВт: Английский\nСр: Базы данных", $now);
+  $ins_sched->execute(2, "ПИ-22\nПн: Алгоритмы, ООП\nСр: Сети\nПт: Инженерия ПО", $now);
+  $ins_sched->execute(3, "ЭК-11\nПн: Микроэкономика\nВт: Макроэкономика\nЧт: Статистика", $now);
 }
 
-sub _pack {
-  my (@parts) = @_;
-  return join('|', map { encode('UTF-8', $_ // '') } @parts);
+# ---------- Факультеты / группы ----------
+
+sub list_faculties {
+  my ($dbh) = @_;
+  return $dbh->selectall_arrayref(q{
+    SELECT id, name FROM faculty ORDER BY name
+  }, { Slice => {} });
 }
 
-sub _unpack {
-  my ($s) = @_;
-  $s //= '';
-  my @parts = split /\|/, $s, -1;
-  @parts = map { decode('UTF-8', $_, 1) } @parts;
-  return @parts;
+sub get_faculty {
+  my ($dbh, $id) = @_;
+  return $dbh->selectrow_hashref(q{
+    SELECT id, name FROM faculty WHERE id=?
+  }, undef, $id);
+}
+
+sub list_groups_by_faculty {
+  my ($dbh, $faculty_id) = @_;
+  return $dbh->selectall_arrayref(q{
+    SELECT id, name, faculty_id
+    FROM "group"
+    WHERE faculty_id=?
+    ORDER BY name
+  }, { Slice => {} }, $faculty_id);
+}
+
+sub get_group {
+  my ($dbh, $id) = @_;
+  return $dbh->selectrow_hashref(q{
+    SELECT id, name, faculty_id
+    FROM "group"
+    WHERE id=?
+  }, undef, $id);
 }
 
 # ---------- Пользователи ----------
@@ -124,29 +206,48 @@ sub _unpack {
 sub list_users {
   my ($dbh) = @_;
   my $rows = $dbh->selectall_arrayref(q{
-    SELECT id,login,full_name,role,email FROM users ORDER BY full_name
+    SELECT id,login,full_name,role,email,groupid
+    FROM users
+    ORDER BY full_name
   }, { Slice => {} });
+  return $rows;
+}
+
+sub list_users_by_group {
+  my ($dbh, $group_id) = @_;
+  my $rows = $dbh->selectall_arrayref(q{
+    SELECT id,login,full_name,role,email,groupid
+    FROM users
+    WHERE groupid=?
+    ORDER BY CASE WHEN role='староста' THEN 0 ELSE 1 END, full_name
+  }, { Slice => {} }, $group_id);
   return $rows;
 }
 
 sub get_user {
   my ($dbh, $id) = @_;
   return $dbh->selectrow_hashref(q{
-    SELECT id,login,full_name,role,email FROM users WHERE id=?
+    SELECT id,login,full_name,role,email,groupid
+    FROM users
+    WHERE id=?
   }, undef, $id);
 }
 
 sub find_user_by_login {
   my ($dbh, $login) = @_;
   return $dbh->selectrow_hashref(q{
-    SELECT id,login,full_name,role,email FROM users WHERE login=?
+    SELECT id,login,full_name,role,email,groupid
+    FROM users
+    WHERE login=?
   }, undef, $login);
 }
 
 sub find_user_by_email {
   my ($dbh, $email) = @_;
   return $dbh->selectrow_hashref(q{
-    SELECT id,login,full_name,role,email FROM users WHERE email=?
+    SELECT id,login,full_name,role,email,groupid
+    FROM users
+    WHERE email=?
   }, undef, $email);
 }
 
@@ -201,20 +302,39 @@ sub add_photo {
 
 # ---------- Расписание ----------
 
+sub get_schedule_by_group {
+  my ($dbh, $group_id) = @_;
+  return $dbh->selectrow_hashref(q{
+    SELECT group_id, text, updated_at
+    FROM shedule
+    WHERE group_id=?
+  }, undef, $group_id);
+}
+
+sub set_schedule_by_group {
+  my ($dbh, $group_id, $text) = @_;
+  my $now = time();
+  $dbh->do(q{
+    INSERT OR REPLACE INTO shedule(group_id,text,updated_at) VALUES(?,?,?)
+  }, undef, $group_id, $text, $now);
+}
+
+# Совместимость со старым кодом (использовать не рекомендуется)
 sub get_schedule {
   my ($dbh) = @_;
-  my $row = $dbh->selectrow_hashref(q{
-    SELECT text, updated_at FROM schedule WHERE key='current'
+  return $dbh->selectrow_hashref(q{
+    SELECT group_id, text, updated_at
+    FROM shedule
+    ORDER BY group_id
+    LIMIT 1
   });
-  return $row;
 }
 
 sub set_schedule {
   my ($dbh, $text) = @_;
-  my $now = time();
-  $dbh->do(q{
-    INSERT OR REPLACE INTO schedule(key,text,updated_at) VALUES('current',?,?)
-  }, undef, $text, $now);
+  my $first = get_schedule($dbh);
+  my $gid = $first ? $first->{group_id} : 1;
+  set_schedule_by_group($dbh, $gid, $text);
 }
 
 # ---------- Логи ----------

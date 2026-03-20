@@ -64,7 +64,7 @@ if ($method eq 'POST') {
 
 my $error_html = $error ? qq{<p class="note">$error</p>} : '';
 
-my $body = <<'HTML';
+my $body = <<"HTML";
 <section class="card">
   <h1>Авторизация</h1>
   <p>Авторизация по email (без пароля) — учебный пример. Роли: староста/учорг/профорг/студлидер/студент.</p>
@@ -72,7 +72,7 @@ my $body = <<'HTML';
   <form method="post" action="/cgi-bin/login.pl">
     <div class="field">
       <label for="email">Email</label>
-      <input id="email" name="email" type="email" placeholder="ivanov@example.com" required />
+      <input id="email" name="email" type="email" placeholder="ivanov.pi21\@example.com" required />
     </div>
     <button class="btn" type="submit">Войти</button>
   </form>

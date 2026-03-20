@@ -29,45 +29,111 @@ if ($session) {
 }
 
 my $method = $ENV{REQUEST_METHOD} // 'GET';
+my $params;
 if ($method eq 'POST') {
   my $len = int($ENV{CONTENT_LENGTH} // 0);
   my $raw = '';
   read(STDIN, $raw, $len) if $len > 0;
-  my $p = parse_params($raw);
-  my $text = $p->{schedule_text} // '';
+  $params = parse_params($raw);
+} else {
+  $params = parse_params($ENV{QUERY_STRING} // '');
+}
 
-  if ($current_user && $current_user->{role} eq 'староста' && $text ne '') {
-    DB::set_schedule($t, $text);
-    DB::add_log($t, $current_user->{id}, 'schedule_updated', '');
+my $faculty_id = $params->{faculty_id} // '';
+my $group_id   = $params->{group_id} // '';
+
+if ($method eq 'POST') {
+  my $text = $params->{schedule_text} // '';
+  if ($current_user
+      && $current_user->{role} eq 'староста'
+      && $current_user->{groupid}
+      && $group_id ne ''
+      && $current_user->{groupid} == $group_id
+      && $text ne '') {
+    DB::set_schedule_by_group($t, $group_id, $text);
+    DB::add_log($t, $current_user->{id}, 'schedule_updated', "group_id=$group_id");
   }
 }
 
-my $sched = DB::get_schedule($t);
-my $text = $sched ? html_escape($sched->{text}) : 'Расписание ещё не заполнено.';
+my $body = '';
+if ($faculty_id eq '') {
+  my $faculties = DB::list_faculties($t);
+  my $items = '';
+  for my $f (@$faculties) {
+    my $id = html_escape($f->{id});
+    my $name = html_escape($f->{name});
+    $items .= qq{<li><a class="btn" href="/cgi-bin/schedule.pl?faculty_id=$id">$name</a></li>};
+  }
+  $body = <<"HTML";
+<section class="card">
+  <h1>Расписание</h1>
+  <p>Шаг 1: выберите факультет.</p>
+  <ol class="toc">$items</ol>
+</section>
+HTML
+} elsif ($group_id eq '') {
+  my $faculty = DB::get_faculty($t, $faculty_id);
+  my $groups = DB::list_groups_by_faculty($t, $faculty_id);
+  my $fname = html_escape($faculty ? $faculty->{name} : "ID $faculty_id");
+  my $items = '';
+  for my $g (@$groups) {
+    my $gid = html_escape($g->{id});
+    my $gname = html_escape($g->{name});
+    $items .= qq{<li><a class="btn" href="/cgi-bin/schedule.pl?faculty_id=$faculty_id&group_id=$gid">$gname</a></li>};
+  }
+  $body = <<"HTML";
+<section class="card">
+  <h1>Расписание</h1>
+  <p>Шаг 2: факультет <span class="pill">$fname</span>. Выберите группу.</p>
+  <ol class="toc">$items</ol>
+  <div class="anchors" style="margin-top:12px">
+    <a href="/cgi-bin/schedule.pl">Назад к факультетам</a>
+  </div>
+</section>
+HTML
+} else {
+  my $group = DB::get_group($t, $group_id);
+  my $faculty = DB::get_faculty($t, $faculty_id);
+  my $sched = DB::get_schedule_by_group($t, $group_id);
+  my $text = $sched ? html_escape($sched->{text}) : 'Расписание для этой группы ещё не заполнено.';
 
-my $upload_block = '';
-if ($current_user && $current_user->{role} eq 'староста') {
-  $upload_block = <<"HTML";
+  my $gname = html_escape($group ? $group->{name} : "ID $group_id");
+  my $fname = html_escape($faculty ? $faculty->{name} : "ID $faculty_id");
+
+  my $upload_block = '';
+  if ($current_user
+      && $current_user->{role} eq 'староста'
+      && $current_user->{groupid}
+      && $current_user->{groupid} == $group_id) {
+    $upload_block = <<"HTML";
 <section class="card" style="margin-top:16px">
-  <h2>Обновить расписание (для старосты)</h2>
+  <h2>Обновить расписание</h2>
   <form method="post" action="/cgi-bin/schedule.pl">
+    <input type="hidden" name="faculty_id" value="$faculty_id" />
+    <input type="hidden" name="group_id" value="$group_id" />
     <div class="field">
-      <label for="schedule_text">Текст расписания (одна строка — один день)</label>
+      <label for="schedule_text">Текст расписания</label>
       <textarea id="schedule_text" name="schedule_text" required>$text</textarea>
     </div>
     <button class="btn" type="submit">Загрузить расписание</button>
   </form>
 </section>
 HTML
-}
+  }
 
-my $body = <<"HTML";
+  $body = <<"HTML";
 <section class="card">
   <h1>Расписание</h1>
+  <p>Факультет: <span class="pill">$fname</span>, группа: <span class="pill">$gname</span>.</p>
   <pre class="muted" style="white-space:pre-wrap">$text</pre>
+  <div class="anchors" style="margin-top:12px">
+    <a href="/cgi-bin/schedule.pl?faculty_id=$faculty_id">Назад к выбору группы</a>
+    <a href="/cgi-bin/schedule.pl">Назад к факультетам</a>
+  </div>
 </section>
 $upload_block
 HTML
+}
 
 print page(
   title => 'Расписание',

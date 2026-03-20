@@ -68,6 +68,10 @@ my $name  = html_escape($user->{full_name});
 my $role  = html_escape($user->{role});
 my $email = html_escape($user->{email});
 my $login = html_escape($user->{login});
+my $group = $user->{groupid} ? DB::get_group($t, $user->{groupid}) : undef;
+my $faculty = ($group && $group->{faculty_id}) ? DB::get_faculty($t, $group->{faculty_id}) : undef;
+my $group_name = $group ? html_escape($group->{name}) : '—';
+my $faculty_name = $faculty ? html_escape($faculty->{name}) : '—';
 
 $body = <<"HTML";
 <section class="card">
@@ -79,6 +83,8 @@ $body = <<"HTML";
       <tr><th>Роль</th><td>$role</td></tr>
       <tr><th>Email</th><td>$email</td></tr>
       <tr><th>Логин</th><td>$login</td></tr>
+      <tr><th>Группа</th><td>$group_name</td></tr>
+      <tr><th>Факультет</th><td>$faculty_name</td></tr>
     </tbody>
   </table>
 

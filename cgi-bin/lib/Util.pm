@@ -115,7 +115,7 @@ $extra_headers
       <div style="margin-top:10px">
         <span class="pill">© <span data-year></span></span>
         <span class="pill">CGI</span>
-        <span class="pill">DBM</span>
+        <span class="pill">SQLite</span>
       </div>
     </footer>
   </main>
