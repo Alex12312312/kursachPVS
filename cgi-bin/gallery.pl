@@ -86,7 +86,6 @@ HTML
 my $body = <<"HTML";
 <section class="card">
   <h1>Галерея</h1>
-  <p>Список фотографий с указанием автора.</p>
 </section>
 
 <section class="grid" style="margin-top:16px">
